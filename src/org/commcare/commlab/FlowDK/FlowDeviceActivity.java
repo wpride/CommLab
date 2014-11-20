@@ -17,6 +17,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
@@ -29,24 +30,25 @@ import android.widget.TextView;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
-public class FlowDeviceActivity extends Activity implements AcmDevicePermissionCallback{
+public class FlowDeviceActivity extends Activity {
 
 	private static final boolean DEBUG = true;
 
-	public static final String ACTION_USB_PERMISSION = "org.ros.android.USB_PERMISSION";
+	public static final String ACTION_USB_PERMISSION = "org.commcarecommlab.USB_PERMISSION";
 	
 	AcmDevice flowDevice;
 
+	// functional items
 	private UsbManager usbManager;
 	private PendingIntent usbPermissionIntent;
 	private BroadcastReceiver usbDevicePermissionReceiver;
 	private BroadcastReceiver usbDeviceDetachedReceiver;
 	
-	private TextView mTextView;
+	// views
+	private TextView mStatusText;
 	private TextView mResultText;
 	private Button transferButton;
 	private Button clearButton;
-
 
 
 	protected void onCreate(Bundle savedInstanceState) {
@@ -54,16 +56,18 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		
 		setContentView(R.layout.activity_main);
 		
-		mTextView = (TextView)findViewById(R.id.statusText);
+		// get views
+		mStatusText = (TextView)findViewById(R.id.statusText);
 		mResultText = (TextView)findViewById(R.id.resultText);
 		transferButton = (Button)findViewById(R.id.transferButton);
 		clearButton = (Button)findViewById(R.id.clearButton);
 		
+		// set click listeners
 		transferButton.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) 
 			{
-				mTextView.setText("Transferring...");
+				mStatusText.setText("Transferring...");
 				String readData = initiateTransfer();
 				int peakFlow = processRawData(readData);
 				mResultText.setText("PeakFlow: " + peakFlow);
@@ -74,16 +78,16 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 			@Override
 			public void onClick(View v) 
 			{
-				mTextView.setText("Clearing...");
+				mStatusText.setText("Clearing...");
 				boolean cleared = initiateClear();
 				if(cleared){
-					mTextView.setText("Successfully cleared device");
+					mStatusText.setText("Successfully cleared device");
 				} else{
-					mTextView.setText("Clear failed.");
+					mStatusText.setText("Clear failed.");
 				}
 			}    
 		});
-
+		
 		usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 		usbPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
@@ -91,72 +95,96 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		registerReceiver(usbDeviceDetachedReceiver, new IntentFilter(
 				UsbManager.ACTION_USB_DEVICE_DETACHED));
 		
-		mTextView.setText("Application initiated");
+		mStatusText.setText("Application initiated");
 
 		onUsbDeviceAttached(getIntent());
 	}
 
+	/**
+	 * Called when a new USB device is connected. Check if its peak flow and config if so
+	 * @param intent OS generated intent with information about the device connection
+	 */
 	private void onUsbDeviceAttached(Intent intent) {
 		if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
 			UsbDevice usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
 			if(isPeakFlowMeter(usbDevice)){
 				newAcmDevice(usbDevice);
-				mTextView.setText("PeakFlow device attached successfully!");
+				mStatusText.setText("PeakFlow device attached successfully!");
 			} else{
-				mTextView.setText("USB Device not recognized.");
+				mStatusText.setText("USB Device not recognized.");
 			}
 		}
 	}
 	
+	/**
+	 *  set the status text
+	 * @param msg message to be displayed
+	 * @param isError determines the coloring
+	 */
+	private void setStatusMessage(String msg, boolean isError){
+		mStatusText.setText(msg);
+		if(isError){
+			mStatusText.setTextColor(Color.RED);
+		} else{
+			mStatusText.setTextColor(Color.BLACK);
+		}
+	}
+	
+	/**
+	 * @param usbDevice Usb Device to be tested
+	 * @return true if the usbDevice is the MicroLife Peak Flow Meter
+	 */
 	private boolean isPeakFlowMeter(UsbDevice usbDevice){
 		return(usbDevice.getVendorId()==1204 && usbDevice.getProductId()==21760);
 	}
 	
+	/**
+	 *  send the clear command to the device to return it to its fresh state
+	 * @return true if the clear was successful
+	 */
 	private boolean initiateClear(){
-		
-		if (DEBUG) {
-			System.out.println("Initiating clear");
-		}
 		
 		OutputStream mOutputStream = flowDevice.getOutputStream();
 		
+		// clear messages
 		byte[] firstWrite = {(byte)0x80,0x25,0x00,0x00,0x03};
 		byte[] secondWrite = {0x03,0x2D,0x7B,0x7d,0x60,(byte)0xAD,0x64,(byte)0xFF};
 		
 		try {
-			System.out.println("Trying write");
 			mOutputStream.write(firstWrite);
 			mOutputStream.write(secondWrite);
-			mOutputStream.close();
 			return true;
 		} catch (IOException e) {
-			System.out.println("Write failed");
-			e.printStackTrace();
+			setStatusMessage("Error performing clear: " + e.getMessage(), true);
+		} finally{
+			try{
+				mOutputStream.close();
+			} catch(IOException e){
+				//ignore
+			}
 		}
 		
 		return false;
 	}
 	
+	/**
+	 * Initiate the transfer from the PeakFlow device to the Android device.
+	 * @return the raw bytes read from the buffer as a String
+	 */
+	
 	private String initiateTransfer(){
-		
-		if (DEBUG) {
-			System.out.println("Initiating transfer");
-		}
-		
+
 		OutputStream mOutputStream = flowDevice.getOutputStream();
 		
 		byte[] firstWrite = {(byte)0x80,0x25,0x00,0x00,0x03};
 		byte[] secondWrite = {0x03,0x2F,0x7B,0x7D,(byte)0xD8,0x52,0x68,(byte)0xFF};
 		
 		try {
-			System.out.println("Trying write");
 			mOutputStream.write(firstWrite);
 			mOutputStream.write(secondWrite);
 			mOutputStream.close();
 		} catch (IOException e) {
-			System.out.println("Write failed");
-			e.printStackTrace();
+			setStatusMessage("Write failed: " + e.getMessage(), true);
 		}
 		
 		InputStream mInputStream = flowDevice.getInputStream();
@@ -164,40 +192,42 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		String readData = "";
 		
 		try {
-			System.out.println("Trying read");
-			
 			byte [] buffer = new byte[8];
 			int bytesRead = 0;
 			while((bytesRead = mInputStream.read(buffer)) != -1) {
-				
 				byte[] newBuffer = Arrays.copyOfRange(buffer,1,8);
-				
 				readData = readData + HexUtils.byteArrayToHexString(newBuffer);
-				System.out.println("PFODK old: " + HexUtils.byteArrayToHexString(buffer));
-			    System.out.println("PFODK new: " + HexUtils.byteArrayToHexString(newBuffer));
 			}
-			mInputStream.close();
-			
-			System.out.println("PFODK Read: " + readData);
-			
 		} catch (IOException e) {
-			System.out.println("Read failed");
-			e.printStackTrace();
+			setStatusMessage("Read failed: " + e.getMessage(), true);
+		} finally{
+			try{
+				mInputStream.close();
+			} catch (IOException ioex) {
+		        //omitted.
+		    }
 		}
-		
 		return readData;
 	}
 	
+	/**
+	 * Process the raw data from the usb read (converted to a String from a byte array)
+	 * Return the maximum reading (which is the only thing we care about)
+	 * @param rawData the rawData read from the device
+	 * @return the maximum peak flow reading
+	 */
 	private int processRawData(String rawData){
 		
+		// "7d" reliably demarcates each measurement
 		String[] splitRawData = rawData.split("7d");
 		
 		int max = -1;
-		
 		for(String split: splitRawData){
 			
 			if(split.length() < 8) break;
 			
+			// little endian encoding, so this is how we pull out the values from the stream
+			// measurements are reliably this distance from the end of the string
 			char hundreds = split.charAt(split.length() - 5);
 			char tens = split.charAt(split.length() - 8);
 			char ones = split.charAt(split.length() - 7);
@@ -210,13 +240,10 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 					max = pfInteger;
 				}
 			} catch(NumberFormatException nfe){
+				// will happen sometimes for the trailing cruft of the last buffer; just ignore. 
 				System.out.println("PFODK couldn't convert number: " + nfe.getMessage());
 			}
-			
-			System.out.println("PFODK result: " + pfString);
-			
 		}
-		
 		return max;
 	}
 
@@ -240,35 +267,11 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 			
 			flowDevice = acmDevice;
 			
-			
-			FlowDeviceActivity.this.onPermissionGranted(acmDevice);
 		} catch(IllegalStateException e) {
 			System.out.println("A precondition failed: " + e);
 		} catch(IllegalArgumentException e) {
 			System.out.println("Hey Failed to create ACM device: " + e + " : " + e.getMessage());
 		}
-	}
-
-	protected Collection<UsbDevice> getUsbDevices(int vendorId, int productId) {
-		Collection<UsbDevice> allDevices = usbManager.getDeviceList().values();
-		Collection<UsbDevice> matchingDevices = Lists.newArrayList();
-		for (UsbDevice device : allDevices) {
-			if (device.getVendorId() == vendorId && device.getProductId() == productId) {
-				matchingDevices.add(device);
-			}
-		}
-		return matchingDevices;
-	}
-
-	@Override
-	public void onPermissionGranted(AcmDevice acmDevice) {
-		System.out.println("Permission granted.");
-
-	}
-
-	@Override
-	public void onPermissionDenied() {
-		System.out.println("Permission denied.");
 	}
 
 	@Override
