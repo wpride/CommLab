@@ -14,18 +14,18 @@
  * the License.
  */
 
-package org.commcare.commlab.utilities;
+package org.commcare.commlabs.utilities;
 
-public enum BitRate {
-  BPS_300(300), BPS_1200(1200), BPS_2400(2400), BPS_4800(4800), BPS_9600(9600), BPS_14400(14400), BPS_19200(19200), BPS_28800(28800), BPS_38400(38400), BPS_57600(57600), BPS_115200(115200);
+public enum StopBits {
+  STOP_BITS_1(0), STOP_BITS_1_5(1), STOP_BITS_2(2);
   
-  private int bitRate;
+  private byte stopBits;
   
-  private BitRate(int bitRate) {
-    this.bitRate = bitRate;
+  private StopBits(int stopBits) {
+    this.stopBits = (byte) stopBits;
   }
 
-  int getBitRate() {
-    return bitRate;
+  byte getStopBits() {
+    return stopBits;
   }
 }

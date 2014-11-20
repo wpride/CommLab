@@ -14,7 +14,7 @@
  * the License.
  */
 
-package org.commcare.commlab.utilities;
+package org.commcare.commlabs.utilities;
 
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;

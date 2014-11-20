@@ -14,23 +14,20 @@
  * the License.
  */
 
-package org.commcare.commlab.utilities;
-
-import android.hardware.usb.UsbConstants;
-import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
-import android.hardware.usb.UsbEndpoint;
-import android.hardware.usb.UsbInterface;
-
-import com.google.common.base.Preconditions;
-
-import org.apache.commons.logging.Log;
+package org.commcare.commlabs.utilities;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbEndpoint;
+import android.hardware.usb.UsbInterface;
+
+import com.google.common.base.Preconditions;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)

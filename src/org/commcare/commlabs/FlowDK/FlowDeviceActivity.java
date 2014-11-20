@@ -1,15 +1,14 @@
-package org.commcare.FlowDK;
+package org.commcare.commlabs.FlowDK;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 
-import org.commcare.commlab.utilities.AcmDevice;
-import org.commcare.commlab.utilities.AcmDevicePermissionCallback;
-import org.commcare.commlab.utilities.HexUtils;
+import org.commcare.commlabs.utilities.AcmDevice;
+import org.commcare.commlabs.utilities.AcmDevicePermissionCallback;
+import org.commcare.commlabs.utilities.HexUtils;
 
 import android.app.Activity;
 import android.app.PendingIntent;
@@ -28,15 +27,12 @@ import android.widget.TextView;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 
 public class FlowDeviceActivity extends Activity implements AcmDevicePermissionCallback{
 
 	private static final boolean DEBUG = true;
 
 	public static final String ACTION_USB_PERMISSION = "org.ros.android.USB_PERMISSION";
-
-	private final Map<String, AcmDevice> acmDevices =  Maps.newConcurrentMap();
 	
 	AcmDevice flowDevice;
 
@@ -49,7 +45,6 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 	private TextView mResultText;
 	private Button transferButton;
 	private Button clearButton;
-	private Button permissionButton;
 
 
 
@@ -62,7 +57,6 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		mResultText = (TextView)findViewById(R.id.resultText);
 		transferButton = (Button)findViewById(R.id.transferButton);
 		clearButton = (Button)findViewById(R.id.clearButton);
-		permissionButton = (Button)findViewById(R.id.action_permission);
 		
 		transferButton.setOnClickListener(new OnClickListener() {
 			@Override
@@ -70,9 +64,22 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 			{
 				mTextView.setText("Transferring...");
 				String readData = initiateTransfer();
-				mTextView.setText(readData);
 				int peakFlow = processRawData(readData);
 				mResultText.setText("PeakFlow: " + peakFlow);
+			}    
+		});
+		
+		clearButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) 
+			{
+				mTextView.setText("Clearing...");
+				boolean cleared = initiateClear();
+				if(cleared){
+					mTextView.setText("Successfully cleared device");
+				} else{
+					mTextView.setText("Clear failed.");
+				}
 			}    
 		});
 
@@ -91,16 +98,43 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 	private void onUsbDeviceAttached(Intent intent) {
 		if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
 			UsbDevice usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-			String deviceName = usbDevice.getDeviceName();
-			if (!acmDevices.containsKey(deviceName)) {
+
+			if(isPeakFlowMeter(usbDevice)){
 				newAcmDevice(usbDevice);
-			} else if (DEBUG) {
-				System.out.println("Ignoring already connected device: " + deviceName);
+				mTextView.setText("PeakFlow device attached successfully!");
+			} else{
+				mTextView.setText("USB Device not recognized.");
 			}
-			
-			System.out.println("Device attached successfully: " + usbDevice);
-			mTextView.setText("Device attached successfully: " + usbDevice);
 		}
+	}
+	
+	private boolean isPeakFlowMeter(UsbDevice usbDevice){
+		return(usbDevice.getVendorId()==1204 && usbDevice.getProductId()==21760);
+	}
+	
+	private boolean initiateClear(){
+		
+		if (DEBUG) {
+			System.out.println("Initiating clear");
+		}
+		
+		OutputStream mOutputStream = flowDevice.getOutputStream();
+		
+		byte[] firstWrite = {(byte)0x80,0x25,0x00,0x00,0x03};
+		byte[] secondWrite = {0x03,0x2D,0x7B,0x7d,0x60,(byte)0xAD,0x64,(byte)0xFF};
+		
+		try {
+			System.out.println("Trying write");
+			mOutputStream.write(firstWrite);
+			mOutputStream.write(secondWrite);
+			mOutputStream.close();
+			return true;
+		} catch (IOException e) {
+			System.out.println("Write failed");
+			e.printStackTrace();
+		}
+		
+		return false;
 	}
 	
 	private String initiateTransfer(){
@@ -126,10 +160,10 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		
 		InputStream mInputStream = flowDevice.getInputStream();
 		
+		String readData = "";
+		
 		try {
 			System.out.println("Trying read");
-			
-			String readData = "";
 			
 			byte [] buffer = new byte[8];
 			int bytesRead = 0;
@@ -145,14 +179,12 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 			
 			System.out.println("PFODK Read: " + readData);
 			
-			return readData;
-			
 		} catch (IOException e) {
 			System.out.println("Read failed");
 			e.printStackTrace();
 		}
 		
-		return null;
+		return readData;
 	}
 	
 	private int processRawData(String rawData){
@@ -171,10 +203,13 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 			
 			String pfString = hundreds + "" + tens + "" + ones;
 			
-			int pfInteger = Integer.parseInt(pfString);
-			
-			if(pfInteger > max){
-				max = pfInteger;
+			try{
+				int pfInteger = Integer.parseInt(pfString);
+				if(pfInteger > max){
+					max = pfInteger;
+				}
+			} catch(NumberFormatException nfe){
+				System.out.println("PFODK couldn't convert number: " + nfe.getMessage());
 			}
 			
 			System.out.println("PFODK result: " + pfString);
@@ -191,8 +226,7 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		try {
 			Preconditions.checkNotNull(usbDevice);
 			String deviceName = usbDevice.getDeviceName();
-			Preconditions.checkState(!acmDevices.containsKey(deviceName), "Already connected to device: "
-					+ deviceName);
+
 			Preconditions.checkState(usbManager.hasPermission(usbDevice), "Permission denied: "
 					+ deviceName);
 
@@ -202,7 +236,6 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 				System.out.println("Adding new ACM device: " + deviceName);
 			}
 			AcmDevice acmDevice = new AcmDevice(usbDeviceConnection, usbDevice);
-			acmDevices.put(deviceName, acmDevice);
 			
 			flowDevice = acmDevice;
 			
@@ -245,20 +278,7 @@ public class FlowDeviceActivity extends Activity implements AcmDevicePermissionC
 		if (usbDevicePermissionReceiver != null) {
 			unregisterReceiver(usbDevicePermissionReceiver);
 		}
-		closeAcmDevices();
+		flowDevice.close();
 		super.onDestroy();
 	}
-
-	private void closeAcmDevices() {
-		synchronized (acmDevices) {
-			for (AcmDevice device : acmDevices.values()) {
-				try {
-					device.close();
-				} catch (RuntimeException e) {
-					// Ignore spurious errors during shutdown.
-				}
-			}
-		}
-	}
-
 }

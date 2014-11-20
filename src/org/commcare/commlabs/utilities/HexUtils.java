@@ -1,4 +1,4 @@
-package org.commcare.commlab.utilities;
+package org.commcare.commlabs.utilities;
 
 public class HexUtils {
 

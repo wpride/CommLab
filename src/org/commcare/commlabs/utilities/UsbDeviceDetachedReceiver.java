@@ -14,16 +14,15 @@
  * the License.
  */
 
-package org.commcare.commlab.utilities;
+package org.commcare.commlabs.utilities;
+
+import java.util.Map;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
-import org.apache.commons.logging.Log;
-
-import java.util.Map;
 
 /**
  * @author damonkohler@google.com (Damon Kohler)

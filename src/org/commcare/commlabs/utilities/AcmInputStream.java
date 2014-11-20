@@ -14,36 +14,38 @@
  * the License.
  */
 
-package org.commcare.commlab.utilities;
+package org.commcare.commlabs.utilities;
 
 import com.google.common.base.Preconditions;
 
 import android.hardware.usb.UsbConstants;
+import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbEndpoint;
-import android.hardware.usb.UsbRequest;
 import android.util.Log;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 
-public class AcmAsyncInputStream extends InputStream {
+public class AcmInputStream extends InputStream {
 
-  private static final boolean DEBUG = false;
-  private static final String TAG = "AcmAsyncInputStream";
+  private static final boolean DEBUG = true;
+  private static final String TAG = "AcmInputStream";
 
-  private final UsbRequestPool usbRequestPool;
+  // Disable USB read timeouts. Reads are expected to block until data becomes
+  // available.
+  private static final int TIMEOUT = 0;
+
+  private final UsbDeviceConnection connection;
   private final UsbEndpoint endpoint;
 
-  public AcmAsyncInputStream(UsbRequestPool usbRequestPool, UsbEndpoint endpoint) {
+  public AcmInputStream(UsbDeviceConnection connection, UsbEndpoint endpoint) {
     Preconditions.checkArgument(endpoint.getDirection() == UsbConstants.USB_DIR_IN);
+    this.connection = connection;
     this.endpoint = endpoint;
-    this.usbRequestPool = usbRequestPool;
   }
 
   @Override
   public void close() throws IOException {
-    usbRequestPool.shutdown();
   }
 
   @Override
@@ -56,23 +58,28 @@ public class AcmAsyncInputStream extends InputStream {
     // be able to return 0 when we didn't read anything. However, it also says
     // we should block until input is available. Blocking seems to be the
     // preferred behavior.
+    byte[] slice = new byte[count];
     if (DEBUG) {
       Log.i(TAG, "Reading " + count + " bytes.");
     }
     int byteCount = 0;
     while (byteCount == 0) {
-      UsbRequest request = usbRequestPool.poll(endpoint);
-      if (!request.queue(ByteBuffer.wrap(buffer, offset, count), count)) {
-        Log.e(TAG, "IO error while queuing " + count + " bytes to be read.");
+      byteCount = connection.bulkTransfer(endpoint, slice, slice.length, TIMEOUT);
+      if (DEBUG) {
+        if (byteCount == 0) {
+          Log.i(TAG, "bulkTransfer() returned 0, retrying.");
+        }
       }
     }
     if (byteCount < 0) {
-      throw new IOException("USB read failed.");
+
+        throw new IOException("USB read failed.");
+
     }
-    // System.arraycopy(slice, 0, buffer, offset, byteCount);
+    System.arraycopy(slice, 0, buffer, offset, byteCount);
     if (DEBUG) {
       Log.i(TAG, "Actually read " + byteCount + " bytes.");
-      // Log.i(TAG, "Slice: " + byteArrayToHexString(slice));
+      Log.i(TAG, "Slice: " + HexUtils.byteArrayToHexString(slice));
     }
     return byteCount;
   }
@@ -80,20 +87,5 @@ public class AcmAsyncInputStream extends InputStream {
   @Override
   public int read() throws IOException {
     throw new UnsupportedOperationException();
-  }
-
-  // TODO(damonkohler): Possibly move this to some common place?
-  private static String byteArrayToHexString(byte[] data) {
-    if (data == null) {
-      return "null";
-    }
-    if (data.length == 0) {
-      return "empty";
-    }
-    StringBuilder out = new StringBuilder(data.length * 5);
-    for (byte b : data) {
-      out.append(String.format("%02x", b));
-    }
-    return out.toString();
   }
 }
