@@ -14,18 +14,15 @@
  * the License.
  */
 
-package org.commcare.commlabs.utilities;
+package org.commcare.commlab.utilities;
 
-public enum Parity {
-  NONE(0), ODD(1), EVEN(2), MARK(3), SPACE(4);
-  
-  private byte parity;
-  
-  private Parity(int parity) {
-    this.parity = (byte) parity;
-  }
+import android.hardware.usb.UsbRequest;
 
-  byte getParity() {
-    return parity;
-  }
+/**
+ * @author damonkohler@google.com (Damon Kohler)
+ */
+public interface UsbRequestCallback {
+
+  void onRequestComplete(UsbRequest request);
+
 }

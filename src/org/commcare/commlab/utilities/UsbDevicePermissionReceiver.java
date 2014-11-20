@@ -14,9 +14,9 @@
  * the License.
  */
 
-package org.commcare.commlabs.utilities;
+package org.commcare.commlab.utilities;
 
-import org.commcare.commlabs.FlowDK.FlowDeviceActivity;
+import org.commcare.commlab.FlowDK.FlowDeviceActivity;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;

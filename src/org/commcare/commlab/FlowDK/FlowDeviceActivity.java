@@ -1,4 +1,4 @@
-package org.commcare.commlabs.FlowDK;
+package org.commcare.commlab.FlowDK;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -6,9 +6,10 @@ import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
 
-import org.commcare.commlabs.utilities.AcmDevice;
-import org.commcare.commlabs.utilities.AcmDevicePermissionCallback;
-import org.commcare.commlabs.utilities.HexUtils;
+import org.commcare.commlab.FlowDK.R;
+import org.commcare.commlab.utilities.AcmDevice;
+import org.commcare.commlab.utilities.AcmDevicePermissionCallback;
+import org.commcare.commlab.utilities.HexUtils;
 
 import android.app.Activity;
 import android.app.PendingIntent;

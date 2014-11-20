@@ -14,7 +14,7 @@
  * the License.
  */
 
-package org.commcare.commlabs.utilities;
+package org.commcare.commlab.utilities;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;

@@ -14,18 +14,15 @@
  * the License.
  */
 
-package org.commcare.commlabs.utilities;
+package org.commcare.commlab.utilities;
 
-public enum DataBits {
-  DATA_BITS_5(5), DATA_BITS_6(6), DATA_BITS_7(7), DATA_BITS_8(8), DATA_BITS_16(16);
-  
-  private byte dataBits;
-  
-  private DataBits(int dataBits) {
-    this.dataBits = (byte) dataBits;
-  }
+/**
+ * @author damonkohler@google.com (Damon Kohler)
+ */
+public interface AcmDevicePermissionCallback {
 
-  byte getDataBits() {
-    return dataBits;
-  }
+  void onPermissionGranted(AcmDevice acmDevice);
+
+  void onPermissionDenied();
+
 }
