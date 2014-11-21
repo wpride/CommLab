@@ -27,15 +27,15 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-public class AcmOutputStream extends OutputStream {
+public class PeakFlowOutputStream extends OutputStream {
 
   private static final boolean DEBUG = false;
-  private static final String TAG = "AcmOutputStream";
+  private static final String TAG = "PeakFlowOutputStream";
 
   private final UsbRequestPool usbRequestPool;
   private final UsbEndpoint endpoint;
 
-  public AcmOutputStream(UsbRequestPool usbRequestPool, UsbEndpoint endpoint) {
+  public PeakFlowOutputStream(UsbRequestPool usbRequestPool, UsbEndpoint endpoint) {
     Preconditions.checkArgument(endpoint.getDirection() == UsbConstants.USB_DIR_OUT);
     this.endpoint = endpoint;
     this.usbRequestPool = usbRequestPool;

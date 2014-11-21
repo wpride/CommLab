@@ -26,10 +26,10 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class AcmInputStream extends InputStream {
+public class PeakFlowInputStream extends InputStream {
 
   private static final boolean DEBUG = true;
-  private static final String TAG = "AcmInputStream";
+  private static final String TAG = "PeakFlowInputStream";
 
   // Disable USB read timeouts. Reads are expected to block until data becomes
   // available.
@@ -38,7 +38,7 @@ public class AcmInputStream extends InputStream {
   private final UsbDeviceConnection connection;
   private final UsbEndpoint endpoint;
 
-  public AcmInputStream(UsbDeviceConnection connection, UsbEndpoint endpoint) {
+  public PeakFlowInputStream(UsbDeviceConnection connection, UsbEndpoint endpoint) {
     Preconditions.checkArgument(endpoint.getDirection() == UsbConstants.USB_DIR_IN);
     this.connection = connection;
     this.endpoint = endpoint;

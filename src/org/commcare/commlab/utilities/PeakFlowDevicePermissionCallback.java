@@ -19,9 +19,9 @@ package org.commcare.commlab.utilities;
 /**
  * @author damonkohler@google.com (Damon Kohler)
  */
-public interface AcmDevicePermissionCallback {
+public interface PeakFlowDevicePermissionCallback {
 
-  void onPermissionGranted(AcmDevice acmDevice);
+  void onPermissionGranted(PeakFlowDevice acmDevice);
 
   void onPermissionDenied();
 

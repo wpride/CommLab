@@ -32,7 +32,7 @@ import com.google.common.base.Preconditions;
 /**
  * @author damonkohler@google.com (Damon Kohler)
  */
-public class AcmDevice {
+public class PeakFlowDevice {
 
 	private static final int CONTROL_TRANSFER_TIMEOUT = 3000; // ms
 
@@ -45,13 +45,13 @@ public class AcmDevice {
 
 	/**
 	 * Auxiliary data class. Used to group the pair of USB endpoints
-	 * used for ACM communication
+	 * used for PeakFlow communication
 	 */
-	private class AcmUsbEndpoints {
+	private class PeakFlowUsbEndpoints {
 		private final UsbEndpoint incoming;
 		private final UsbEndpoint outgoing;
 
-		public AcmUsbEndpoints(UsbEndpoint incoming, UsbEndpoint outgoing) {
+		public PeakFlowUsbEndpoints(UsbEndpoint incoming, UsbEndpoint outgoing) {
 			this.incoming = incoming;
 			this.outgoing = outgoing;
 		}
@@ -65,32 +65,33 @@ public class AcmDevice {
 		}
 	}
 
-	public AcmDevice(UsbDeviceConnection usbDeviceConnection, UsbDevice usbDevice) {
+	public PeakFlowDevice(UsbDeviceConnection usbDeviceConnection, UsbDevice usbDevice) {
 		this.usbDeviceConnection = usbDeviceConnection;
 
-		// Go through all declared interfaces and automatically select the one that looks
-		// like an ACM interface
+		// grab our interface and usb endpoints
 		UsbInterface usbInterface = null;
-		AcmUsbEndpoints acmUsbEndpoints = null;
+		PeakFlowUsbEndpoints pfUsbEndpoints = null;
 		
 		usbInterface = usbDevice.getInterface(0);
-		acmUsbEndpoints = getAcmEndpoints(usbInterface);
+		pfUsbEndpoints = getPeakFlowUsbEndpoints(usbInterface);
 		
-		if(acmUsbEndpoints == null) {
-			throw new IllegalArgumentException("Couldn't find an interface that looks like ACM on this USB device: " + usbDevice);
+		if(pfUsbEndpoints == null) {
+			throw new IllegalArgumentException("Couldn't find an interface that looks like Microlife PeakFlow on this USB device: " + usbDevice);
 		}
 
 		this.usbInterface = usbInterface;
 		this.usbDevice = usbDevice;
 		
+		// setup request pool to manage usbRequests
 		usbRequestPool = new UsbRequestPool(usbDeviceConnection);
 		
-		usbRequestPool.addEndpoint(acmUsbEndpoints.getOutgoing(), null);
+		usbRequestPool.addEndpoint(pfUsbEndpoints.getOutgoing(), null);
 		
 		usbRequestPool.start();
 
-		outputStream = new AcmOutputStream(usbRequestPool, acmUsbEndpoints.getOutgoing());
-		inputStream = new AcmInputStream(usbDeviceConnection, acmUsbEndpoints.getIncoming());
+		// get our streams for communication
+		outputStream = new PeakFlowOutputStream(usbRequestPool, pfUsbEndpoints.getOutgoing());
+		inputStream = new PeakFlowInputStream(usbDeviceConnection, pfUsbEndpoints.getIncoming());
 		
 		System.out.println("Output streams set.");
 		
@@ -102,7 +103,7 @@ public class AcmDevice {
 	 * @return Array with incoming (first) and outgoing (second) USB endpoints
 	 * @return <code>null</code>  in case either of the endpoints is not found
 	 */
-	private AcmUsbEndpoints getAcmEndpoints(UsbInterface usbInterface) {
+	private PeakFlowUsbEndpoints getPeakFlowUsbEndpoints(UsbInterface usbInterface) {
 		UsbEndpoint outgoingEndpoint = usbInterface.getEndpoint(1);
 		UsbEndpoint incomingEndpoint = usbInterface.getEndpoint(0);
 
@@ -112,7 +113,7 @@ public class AcmDevice {
 		if(outgoingEndpoint == null || incomingEndpoint == null) {
 			return null;
 		} else {
-			return new AcmUsbEndpoints(incomingEndpoint, outgoingEndpoint);
+			return new PeakFlowUsbEndpoints(incomingEndpoint, outgoingEndpoint);
 		}
 	}
 

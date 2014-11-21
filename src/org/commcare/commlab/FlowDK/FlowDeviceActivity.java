@@ -7,8 +7,8 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import org.commcare.commlab.FlowDK.R;
-import org.commcare.commlab.utilities.AcmDevice;
-import org.commcare.commlab.utilities.AcmDevicePermissionCallback;
+import org.commcare.commlab.utilities.PeakFlowDevice;
+import org.commcare.commlab.utilities.PeakFlowDevicePermissionCallback;
 import org.commcare.commlab.utilities.HexUtils;
 
 import android.app.Activity;
@@ -36,7 +36,7 @@ public class FlowDeviceActivity extends Activity {
 
 	public static final String ACTION_USB_PERMISSION = "org.commcarecommlab.USB_PERMISSION";
 	
-	AcmDevice flowDevice;
+	PeakFlowDevice flowDevice;
 
 	// functional items
 	private UsbManager usbManager;
@@ -263,7 +263,7 @@ public class FlowDeviceActivity extends Activity {
 			if (DEBUG) {
 				System.out.println("Adding new ACM device: " + deviceName);
 			}
-			AcmDevice acmDevice = new AcmDevice(usbDeviceConnection, usbDevice);
+			PeakFlowDevice acmDevice = new PeakFlowDevice(usbDeviceConnection, usbDevice);
 			
 			flowDevice = acmDevice;
 			
