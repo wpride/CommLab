@@ -1,3 +1,3 @@
 CommLab
 ========
-Application for reading from MicroLife PeakFlow device and integrating with CommCareODK
+Application for reading from peakflow measurement from device and integrating with CommCareODK

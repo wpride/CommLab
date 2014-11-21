@@ -36,6 +36,12 @@
         	</intent-filter>
             <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" 
                android:resource="@xml/device_filter" />
+            <intent-filter>
+             <action android:name="org.commcare.commlab.FlowDK"/>
+             <category android:name="android.intent.category.DEFAULT"/>
+      		</intent-filter>
+            
+            
         </activity>
     </application>
 

@@ -35,7 +35,7 @@ public class FlowDeviceActivity extends Activity {
 	private static final boolean DEBUG = true;
 
 	public static final String ACTION_USB_PERMISSION = "org.commcarecommlab.USB_PERMISSION";
-	
+
 	PeakFlowDevice flowDevice;
 
 	// functional items
@@ -43,25 +43,29 @@ public class FlowDeviceActivity extends Activity {
 	private PendingIntent usbPermissionIntent;
 	private BroadcastReceiver usbDevicePermissionReceiver;
 	private BroadcastReceiver usbDeviceDetachedReceiver;
-	
+
 	// views
 	private TextView mStatusText;
 	private TextView mResultText;
 	private Button transferButton;
 	private Button clearButton;
+	private Button returnButton;
+	
+	private String mAnswer;
 
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		
+
 		setContentView(R.layout.activity_main);
-		
+
 		// get views
 		mStatusText = (TextView)findViewById(R.id.statusText);
 		mResultText = (TextView)findViewById(R.id.resultText);
 		transferButton = (Button)findViewById(R.id.transferButton);
 		clearButton = (Button)findViewById(R.id.clearButton);
-		
+		returnButton = (Button)findViewById(R.id.returnButton);
+
 		// set click listeners
 		transferButton.setOnClickListener(new OnClickListener() {
 			@Override
@@ -70,10 +74,11 @@ public class FlowDeviceActivity extends Activity {
 				mStatusText.setText("Transferring...");
 				String readData = initiateTransfer();
 				int peakFlow = processRawData(readData);
+				mAnswer = ""+peakFlow;
 				mResultText.setText("PeakFlow: " + peakFlow);
 			}    
 		});
-		
+
 		clearButton.setOnClickListener(new OnClickListener() {
 			@Override
 			public void onClick(View v) 
@@ -85,16 +90,22 @@ public class FlowDeviceActivity extends Activity {
 				} else{
 					mStatusText.setText("Clear failed.");
 				}
-			}    
+			}
 		});
 		
+		returnButton.setOnClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) 
+			{
+				sendAnswerBackToApp(mAnswer);
+			}    
+		});
+
 		usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
 		usbPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
 		registerReceiver(usbDevicePermissionReceiver, new IntentFilter(ACTION_USB_PERMISSION));
-		registerReceiver(usbDeviceDetachedReceiver, new IntentFilter(
-				UsbManager.ACTION_USB_DEVICE_DETACHED));
-		
+
 		mStatusText.setText("Application initiated");
 
 		onUsbDeviceAttached(getIntent());
@@ -115,7 +126,7 @@ public class FlowDeviceActivity extends Activity {
 			}
 		}
 	}
-	
+
 	/**
 	 *  set the status text
 	 * @param msg message to be displayed
@@ -129,7 +140,7 @@ public class FlowDeviceActivity extends Activity {
 			mStatusText.setTextColor(Color.BLACK);
 		}
 	}
-	
+
 	/**
 	 * @param usbDevice Usb Device to be tested
 	 * @return true if the usbDevice is the MicroLife Peak Flow Meter
@@ -137,19 +148,19 @@ public class FlowDeviceActivity extends Activity {
 	private boolean isPeakFlowMeter(UsbDevice usbDevice){
 		return(usbDevice.getVendorId()==1204 && usbDevice.getProductId()==21760);
 	}
-	
+
 	/**
 	 *  send the clear command to the device to return it to its fresh state
 	 * @return true if the clear was successful
 	 */
 	private boolean initiateClear(){
-		
+
 		OutputStream mOutputStream = flowDevice.getOutputStream();
-		
+
 		// clear messages
 		byte[] firstWrite = {(byte)0x80,0x25,0x00,0x00,0x03};
 		byte[] secondWrite = {0x03,0x2D,0x7B,0x7d,0x60,(byte)0xAD,0x64,(byte)0xFF};
-		
+
 		try {
 			mOutputStream.write(firstWrite);
 			mOutputStream.write(secondWrite);
@@ -163,22 +174,22 @@ public class FlowDeviceActivity extends Activity {
 				//ignore
 			}
 		}
-		
+
 		return false;
 	}
-	
+
 	/**
 	 * Initiate the transfer from the PeakFlow device to the Android device.
 	 * @return the raw bytes read from the buffer as a String
 	 */
-	
+
 	private String initiateTransfer(){
 
 		OutputStream mOutputStream = flowDevice.getOutputStream();
-		
+
 		byte[] firstWrite = {(byte)0x80,0x25,0x00,0x00,0x03};
 		byte[] secondWrite = {0x03,0x2F,0x7B,0x7D,(byte)0xD8,0x52,0x68,(byte)0xFF};
-		
+
 		try {
 			mOutputStream.write(firstWrite);
 			mOutputStream.write(secondWrite);
@@ -186,11 +197,11 @@ public class FlowDeviceActivity extends Activity {
 		} catch (IOException e) {
 			setStatusMessage("Write failed: " + e.getMessage(), true);
 		}
-		
+
 		InputStream mInputStream = flowDevice.getInputStream();
-		
+
 		String readData = "";
-		
+
 		try {
 			byte [] buffer = new byte[8];
 			int bytesRead = 0;
@@ -204,12 +215,12 @@ public class FlowDeviceActivity extends Activity {
 			try{
 				mInputStream.close();
 			} catch (IOException ioex) {
-		        //omitted.
-		    }
+				//omitted.
+			}
 		}
 		return readData;
 	}
-	
+
 	/**
 	 * Process the raw data from the usb read (converted to a String from a byte array)
 	 * Return the maximum reading (which is the only thing we care about)
@@ -217,23 +228,23 @@ public class FlowDeviceActivity extends Activity {
 	 * @return the maximum peak flow reading
 	 */
 	private int processRawData(String rawData){
-		
+
 		// "7d" reliably demarcates each measurement
 		String[] splitRawData = rawData.split("7d");
-		
+
 		int max = -1;
 		for(String split: splitRawData){
-			
+
 			if(split.length() < 8) break;
-			
+
 			// little endian encoding, so this is how we pull out the values from the stream
 			// measurements are reliably this distance from the end of the string
 			char hundreds = split.charAt(split.length() - 5);
 			char tens = split.charAt(split.length() - 8);
 			char ones = split.charAt(split.length() - 7);
-			
+
 			String pfString = hundreds + "" + tens + "" + ones;
-			
+
 			try{
 				int pfInteger = Integer.parseInt(pfString);
 				if(pfInteger > max){
@@ -264,9 +275,9 @@ public class FlowDeviceActivity extends Activity {
 				System.out.println("Adding new ACM device: " + deviceName);
 			}
 			PeakFlowDevice acmDevice = new PeakFlowDevice(usbDeviceConnection, usbDevice);
-			
+
 			flowDevice = acmDevice;
-			
+
 		} catch(IllegalStateException e) {
 			System.out.println("A precondition failed: " + e);
 		} catch(IllegalArgumentException e) {
@@ -285,4 +296,18 @@ public class FlowDeviceActivity extends Activity {
 		flowDevice.close();
 		super.onDestroy();
 	}
+
+
+	/*
+	 * send the calculated result back to ODK. The magic string odk_intent_data
+	 * correctly directs this behavior.
+	 */
+	private void sendAnswerBackToApp(String mAnswer) {
+		setStatusMessage("Returning answer to CommCare: " + mAnswer, false);
+		Intent intent = new Intent();
+		intent.putExtra("odk_intent_data", String.valueOf(mAnswer));
+		setResult(RESULT_OK, intent);
+		finish();
+	}
+
 }
