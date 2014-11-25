@@ -42,7 +42,6 @@ public class FlowDeviceActivity extends Activity {
 	private UsbManager usbManager;
 	private PendingIntent usbPermissionIntent;
 	private BroadcastReceiver usbDevicePermissionReceiver;
-	private BroadcastReceiver usbDeviceDetachedReceiver;
 
 	// views
 	private TextView mStatusText;
@@ -210,7 +209,12 @@ public class FlowDeviceActivity extends Activity {
 				readData = readData + HexUtils.byteArrayToHexString(newBuffer);
 			}
 		} catch (IOException e) {
-			setStatusMessage("Read failed: " + e.getMessage(), true);
+			
+			if(readData.length()<8){
+				setStatusMessage("Read failed: " + e.getMessage(), true);
+			}
+			
+			setStatusMessage("Successfully read " + readData.length()/2 + " bytes.", false);
 		} finally{
 			try{
 				mInputStream.close();
@@ -287,9 +291,6 @@ public class FlowDeviceActivity extends Activity {
 
 	@Override
 	protected void onDestroy() {
-		if (usbDeviceDetachedReceiver != null) {
-			unregisterReceiver(usbDeviceDetachedReceiver);
-		}
 		if (usbDevicePermissionReceiver != null) {
 			unregisterReceiver(usbDevicePermissionReceiver);
 		}
