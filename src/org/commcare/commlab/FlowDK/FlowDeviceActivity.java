@@ -37,6 +37,8 @@ public class FlowDeviceActivity extends Activity {
 	public static final String ACTION_USB_PERMISSION = "org.commcarecommlab.USB_PERMISSION";
 
 	PeakFlowDevice flowDevice;
+	
+	public static FlowDeviceActivity mFlowDeviceActivity;
 
 	// functional items
 	private UsbManager usbManager;
@@ -106,6 +108,8 @@ public class FlowDeviceActivity extends Activity {
 		registerReceiver(usbDevicePermissionReceiver, new IntentFilter(ACTION_USB_PERMISSION));
 
 		mStatusText.setText("Application initiated");
+		
+		mFlowDeviceActivity = this;
 
 		onUsbDeviceAttached(getIntent());
 	}
@@ -296,6 +300,10 @@ public class FlowDeviceActivity extends Activity {
 		}
 		flowDevice.close();
 		super.onDestroy();
+	}
+	
+	public String getPeakFlow(){
+		return mAnswer;
 	}
 
 
