@@ -4,112 +4,58 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.Collection;
 
-import org.commcare.commlab.FlowDK.R;
-import org.commcare.commlab.utilities.PeakFlowDevice;
-import org.commcare.commlab.utilities.PeakFlowDevicePermissionCallback;
 import org.commcare.commlab.utilities.HexUtils;
+import org.commcare.commlab.utilities.PeakFlowDevice;
 
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
-import android.graphics.Color;
+import android.content.SharedPreferences;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.Button;
-import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
+
+/***
+ * Activity for handling communication between Android device and PeakFlow meter. On each plug in
+ * of the meter, this activity initiates communication with device, pulls the data from the USB device,
+ * determines the highest PeakFlow value, stores this value in SharedPreferences, then clears the device.
+ * 
+ * @author wspride
+ *
+ */
 
 public class FlowDeviceActivity extends Activity {
 
-	private static final boolean DEBUG = true;
+	private static final boolean DEBUG = false;
 
 	public static final String ACTION_USB_PERMISSION = "org.commcarecommlab.USB_PERMISSION";
-
-	PeakFlowDevice flowDevice;
 	
-	public static FlowDeviceActivity mFlowDeviceActivity;
+	// strings for storing the peakflow value
+	public static final String PREFS_NAME = "MyPrefsFile";
+	public static final String PEAKFLOW_VALUE_KEY = "peakflow-answer";
+
+	// the current peak flow device
+	PeakFlowDevice flowDevice;
 
 	// functional items
 	private UsbManager usbManager;
 	private PendingIntent usbPermissionIntent;
 	private BroadcastReceiver usbDevicePermissionReceiver;
 
-	// views
-	private TextView mStatusText;
-	private TextView mResultText;
-	private Button transferButton;
-	private Button clearButton;
-	private Button returnButton;
-	
-	private String mAnswer;
-
 
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-
-		setContentView(R.layout.activity_main);
-
-		// get views
-		mStatusText = (TextView)findViewById(R.id.statusText);
-		mResultText = (TextView)findViewById(R.id.resultText);
-		transferButton = (Button)findViewById(R.id.transferButton);
-		clearButton = (Button)findViewById(R.id.clearButton);
-		returnButton = (Button)findViewById(R.id.returnButton);
-
-		// set click listeners
-		transferButton.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) 
-			{
-				mStatusText.setText("Transferring...");
-				String readData = initiateTransfer();
-				int peakFlow = processRawData(readData);
-				mAnswer = ""+peakFlow;
-				mResultText.setText("PeakFlow: " + peakFlow);
-			}    
-		});
-
-		clearButton.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) 
-			{
-				mStatusText.setText("Clearing...");
-				boolean cleared = initiateClear();
-				if(cleared){
-					mStatusText.setText("Successfully cleared device");
-				} else{
-					mStatusText.setText("Clear failed.");
-				}
-			}
-		});
 		
-		returnButton.setOnClickListener(new OnClickListener() {
-			@Override
-			public void onClick(View v) 
-			{
-				sendAnswerBackToApp(mAnswer);
-			}    
-		});
-
-		usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
-		usbPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
-
-		registerReceiver(usbDevicePermissionReceiver, new IntentFilter(ACTION_USB_PERMISSION));
-
-		mStatusText.setText("Application initiated");
-		
-		mFlowDeviceActivity = this;
+		// initialize the needed android resources
+        usbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        usbPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
 
 		onUsbDeviceAttached(getIntent());
 	}
@@ -123,24 +69,35 @@ public class FlowDeviceActivity extends Activity {
 			UsbDevice usbDevice = (UsbDevice) intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
 			if(isPeakFlowMeter(usbDevice)){
 				newAcmDevice(usbDevice);
-				mStatusText.setText("PeakFlow device attached successfully!");
-			} else{
-				mStatusText.setText("USB Device not recognized.");
+				
+				String answer = initiateTransfer();
+				int intAnswer = processRawData(answer);
+				
+				// only clear device if we successfully save the answer
+				if(storePeakFlowValue(intAnswer)){
+					Toast.makeText(getApplicationContext(), "Answer: " + intAnswer, Toast.LENGTH_LONG).show();
+					initiateClear();
+				} else{
+					Toast.makeText(getApplicationContext(), "Serious error! Couldn't store value: " +  answer, Toast.LENGTH_LONG).show();
+				}
 			}
 		}
+		finish();
 	}
-
-	/**
-	 *  set the status text
-	 * @param msg message to be displayed
-	 * @param isError determines the coloring
+	
+	/*
+	 * Store the value @answer in the SharedPreferences. 
+	 * return true if the save is successful, false otherwise
 	 */
-	private void setStatusMessage(String msg, boolean isError){
-		mStatusText.setText(msg);
-		if(isError){
-			mStatusText.setTextColor(Color.RED);
-		} else{
-			mStatusText.setTextColor(Color.BLACK);
+	private boolean storePeakFlowValue(int answer){	
+		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
+		SharedPreferences.Editor editor = settings.edit();
+		editor.putInt(FlowDeviceActivity.PEAKFLOW_VALUE_KEY, answer);
+		
+		if(editor.commit()){
+			return true;
+		}else{
+			return false;
 		}
 	}
 
@@ -169,7 +126,6 @@ public class FlowDeviceActivity extends Activity {
 			mOutputStream.write(secondWrite);
 			return true;
 		} catch (IOException e) {
-			setStatusMessage("Error performing clear: " + e.getMessage(), true);
 		} finally{
 			try{
 				mOutputStream.close();
@@ -198,7 +154,6 @@ public class FlowDeviceActivity extends Activity {
 			mOutputStream.write(secondWrite);
 			mOutputStream.close();
 		} catch (IOException e) {
-			setStatusMessage("Write failed: " + e.getMessage(), true);
 		}
 
 		InputStream mInputStream = flowDevice.getInputStream();
@@ -215,10 +170,7 @@ public class FlowDeviceActivity extends Activity {
 		} catch (IOException e) {
 			
 			if(readData.length()<8){
-				setStatusMessage("Read failed: " + e.getMessage(), true);
 			}
-			
-			setStatusMessage("Successfully read " + readData.length()/2 + " bytes.", false);
 		} finally{
 			try{
 				mInputStream.close();
@@ -301,22 +253,4 @@ public class FlowDeviceActivity extends Activity {
 		flowDevice.close();
 		super.onDestroy();
 	}
-	
-	public String getPeakFlow(){
-		return mAnswer;
-	}
-
-
-	/*
-	 * send the calculated result back to ODK. The magic string odk_intent_data
-	 * correctly directs this behavior.
-	 */
-	private void sendAnswerBackToApp(String mAnswer) {
-		setStatusMessage("Returning answer to CommCare: " + mAnswer, false);
-		Intent intent = new Intent();
-		intent.putExtra("odk_intent_data", String.valueOf(mAnswer));
-		setResult(RESULT_OK, intent);
-		finish();
-	}
-
 }
