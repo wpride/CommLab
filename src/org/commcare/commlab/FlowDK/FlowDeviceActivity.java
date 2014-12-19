@@ -71,11 +71,12 @@ public class FlowDeviceActivity extends Activity {
 				newAcmDevice(usbDevice);
 				
 				String answer = initiateTransfer();
-				int intAnswer = processRawData(answer);
+				// peak flow values in a comma separated string
+				String answerString = processRawData(answer);
 				
 				// only clear device if we successfully save the answer
-				if(storePeakFlowValue(intAnswer)){
-					Toast.makeText(getApplicationContext(), "Answer: " + intAnswer, Toast.LENGTH_LONG).show();
+				if(storePeakFlowValue(answerString)){
+					Toast.makeText(getApplicationContext(), "Answer: " + answerString, Toast.LENGTH_LONG).show();
 					initiateClear();
 				} else{
 					Toast.makeText(getApplicationContext(), "Serious error! Couldn't store value: " +  answer, Toast.LENGTH_LONG).show();
@@ -89,10 +90,10 @@ public class FlowDeviceActivity extends Activity {
 	 * Store the value @answer in the SharedPreferences. 
 	 * return true if the save is successful, false otherwise
 	 */
-	private boolean storePeakFlowValue(int answer){	
+	private boolean storePeakFlowValue(String answer){	
 		SharedPreferences settings = getSharedPreferences(PREFS_NAME, 0);
 		SharedPreferences.Editor editor = settings.edit();
-		editor.putInt(FlowDeviceActivity.PEAKFLOW_VALUE_KEY, answer);
+		editor.putString(FlowDeviceActivity.PEAKFLOW_VALUE_KEY, answer);
 		
 		if(editor.commit()){
 			return true;
@@ -187,12 +188,14 @@ public class FlowDeviceActivity extends Activity {
 	 * @param rawData the rawData read from the device
 	 * @return the maximum peak flow reading
 	 */
-	private int processRawData(String rawData){
+	private String processRawData(String rawData){
 
 		// "7d" reliably demarcates each measurement
 		String[] splitRawData = rawData.split("7d");
 
 		int max = -1;
+		String accumulator ="";
+		
 		for(String split: splitRawData){
 
 			if(split.length() < 8) break;
@@ -207,15 +210,13 @@ public class FlowDeviceActivity extends Activity {
 
 			try{
 				int pfInteger = Integer.parseInt(pfString);
-				if(pfInteger > max){
-					max = pfInteger;
-				}
+				accumulator += pfString + ",";
 			} catch(NumberFormatException nfe){
 				// will happen sometimes for the trailing cruft of the last buffer; just ignore. 
 				System.out.println("PFODK couldn't convert number: " + nfe.getMessage());
 			}
 		}
-		return max;
+		return accumulator.substring(0,accumulator.length()-1);
 	}
 
 	/**

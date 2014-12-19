@@ -35,13 +35,13 @@ public class CommCareReceiverActivity extends Activity {
 			public void onClick(View v) 
 			{
 			    SharedPreferences settings = getSharedPreferences(FlowDeviceActivity.PREFS_NAME, 0);
-			    int answer = settings.getInt(FlowDeviceActivity.PEAKFLOW_VALUE_KEY, -1);
+			    String answer = settings.getString(FlowDeviceActivity.PEAKFLOW_VALUE_KEY, "-1");
 			    
-			    if(answer <0){
+			    if(answer.equals("-1")){
 			    	statusView.setText("Couldn't find any peak flow value.");
 			    }
 			    else{
-			    	sendAnswerBackToApp(""+answer);
+			    	sendAnswerBackToApp(answer);
 			    }
 			}    
 		});
@@ -52,8 +52,23 @@ public class CommCareReceiverActivity extends Activity {
 	 * send answer back to CCODK
 	 */
 	private void sendAnswerBackToApp(String mAnswer) {
+		
+		String[] answerArray = mAnswer.split(",");
 		Intent intent = new Intent();
-		intent.putExtra("odk_intent_data", mAnswer);
+		Bundle bundle = new Bundle();
+		
+		for(int i=0; i< answerArray.length;i++){
+			String s = answerArray[i];
+			try{
+				int pfInteger = Integer.parseInt(s);
+				bundle.putString("peak_flow_"+i, ""+pfInteger);
+			} catch(NumberFormatException nfe){
+				// will happen sometimes for the trailing cruft of the last buffer; just ignore. 
+				System.out.println("PFODK couldn't convert number: " + nfe.getMessage());
+			}
+		}
+
+		intent.putExtra("odk_intent_bundle", bundle);
 		setResult(RESULT_OK, intent);
 		finish();
 	}
