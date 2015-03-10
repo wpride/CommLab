@@ -198,7 +198,7 @@ public class FlowDeviceActivity extends Activity {
 		
 		for(String split: splitRawData){
 
-			if(split.length() < 8) break;
+			if(split.length() < 16) break;
 
 			// little endian encoding, so this is how we pull out the values from the stream
 			// measurements are reliably this distance from the end of the string
